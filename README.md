@@ -1,5 +1,5 @@
 # S-FMM
-Codes to run Spatial-FMM
+Code to perform Spatial-FMM
 ## How to use
 
 We describe below three functions:  
