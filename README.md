@@ -1,52 +1,109 @@
-# S-FMM
-Code to perform Spatial-FMM
 ## How to use
 
-We describe below three functions:  
-- `S_FMM`  
-- `SIM_S_FMM`  
-- `GridCell_FM`  
+We describe below three main functions:
 
-The function `S_FMM` executes the S-FMM estimation pipeline, including SVD preprocessing, two-layer FMM estimation, linear fit, and refinement. It returns the fitted surface, parameter estimates, and fit quality.
-
----
-
-### `S_FMM` function description
-
-`S_FMM` performs a full end-to-end estimation of S-FMM from a 2D data matrix, using two-stage FMM modeling and spatial/temporal decomposition.
-
-**Arguments**  
-- `K`: integer. Number of FMM components for the first stage (temporal or per-channel).  
-- `L`: integer. Number of FMM components for the second stage (spatial or across channels).  
-- `vDataMatrix`: numeric matrix. A 2D data matrix where rows are spatial samples (e.g., angle θ) and columns are temporal samples (e.g., angle φ).  
-- `path`: character. Path to the folder containing the script `auxMultiFMM.R`, if needed.
-
-**Return values**  
-A named R list containing:  
-- `PredFMM`: matrix. The reconstructed 2D surface after final FMM modeling and refinement.  
-- `r2`: numeric. The global R² value measuring model fit quality.  
-- `alpha1`, `omega1`: vectors. Estimated FMM phase and frequency parameters for the first stage.  
-- `alpha2`, `omega2`: vectors. Estimated FMM phase and frequency parameters for the second stage.  
-- `beta_hat`: numeric vector. Final estimated regression coefficients from the 3DFMM linear model.
+- `S_FMM`
+- `SIM_S_FMM`
+- `GridCell_FM`
 
 ---
 
-### Summary of processing steps
+### `S_FMM` function
 
-1. SVD decomposition of the input data matrix to extract dominant spatial/temporal modes.  
-2. Stage 1 FMM fit: The leading singular vectors are fitted using the `fitMultiFMM` function.  
-3. Stage 2 FMM fit: Outputs from Stage 1 are used to construct predictors for a second layer of FMM fits via `fitMultiFMM`.  
-4. Stage 3: Global model fitting using the custom function `fit_fmm_linear5`, based on both `alpha` and `omega` parameters from Stage 1 and 2.  
-5. Stage 4: Parameter refinement using the `Ref` function, which optimizes phase and frequency estimates for improved model accuracy.  
-6. Output reconstruction: The final surface is reconstructed and the global R² is computed.
+Executes the S-FMM estimation pipeline, including SVD preprocessing, two-layer FMM estimation, linear fit, and refinement. It returns the fitted surface, parameter estimates, and fit quality.
+
+#### **Arguments**
+
+- `K`: *integer*. Number of FMM components for the first stage (temporal or per-channel).
+- `L`: *integer*. Number of FMM components for the second stage (spatial or across channels).
+- `vDataMatrix`: *numeric matrix*. A 2D matrix (rows = spatial samples, columns = temporal samples).
+- `path`: *character*. Path to the folder containing the script `auxMultiFMM.R`.
+
+#### **Returns**
+
+A named list in R with:
+
+- `PredFMM`: reconstructed 2D surface.
+- `r2`: global R² fit.
+- `alpha1, omega1`: vectors of parameters (stage 1).
+- `alpha2, omega2`: vectors of parameters (stage 2).
+- `beta_hat`: final regression coefficients.
+
+#### **Processing steps**
+
+1. SVD decomposition of input matrix.
+2. Stage 1: fit with `fitMultiFMM`.
+3. Stage 2: secondary predictors with `fitMultiFMM`.
+4. Global fitting with `fit_fmm_linear5`.
+5. Refinement using `Ref`.
+6. Final output and R² computation.
+
+#### **Auxiliary Functions**
+
+- `phi_mobius`: Möbius transform for phase alignment.
+- `fit_fmm_linear5`: Linear regression using known α, ω.
+- `Ref`: Refines α, ω by optimization.
 
 ---
 
-### Auxiliary functions
+### `SIM_S_FMM` function
 
-The script includes three internal auxiliary functions that support the core modeling process:  
-- `phi_mobius`: Computes Möbius transformations, which are essential for phase adjustment and normalization on the unit circle.  
-- `fit_fmm_linear5`: Performs global linear modeling with known `alpha` and `omega` parameters from dual-layer FMM decomposition.  
-- `Ref`: Refines the parameter estimates (`alpha` and `omega`) through an iterative optimization process, enhancing model fidelity.  
+Simulates S-FMM data, adds noise, fits the model, and evaluates accuracy.
 
-These functions are embedded in the script to ensure self-containment and do not require external dependencies.
+#### **Arguments**
+
+- `K`, `L`: FMM components (stage 1 & 2).
+- `nit`: number of Monte Carlo simulations.
+- `noise_level`: std dev of Gaussian noise.
+- `path`: path to required auxiliary scripts.
+- `n_theta`, `n_phi`: number of angular samples.
+- `par_current`: true α and ω parameters.
+- `beta_hat`: linear parameters.
+
+#### **Workflow**
+
+1. Design matrix construction.
+2. Signal reconstruction with true β.
+3. Add noise and fit via `S_FMM`.
+4. Sort/align estimates.
+5. MSE and mean R² computation.
+6. Confidence intervals (circular and linear).
+7. Output: data frames with parameter stats.
+
+#### **Important:**
+Uses `S_FMM` internally from this same repository.
+
+#### **Auxiliary functions**
+
+- `phi_mobius`, `fit_fmm_linear5`, `Ref`
+- `sort_alpha`, `mse_wrap`, `circular_ci_around_median`
+
+---
+
+### `GridCell_FM` function
+
+Processes `.npz` spike data, estimates KDE maps, and normalizes by occupancy.
+
+#### **Arguments**
+
+- `archivo`: path to `.npz` neural data file.
+- `path`: folder with `auxMultiFMM.R`.
+
+#### **Workflow**
+
+1. Load data using `reticulate`.
+2. Extract spike times and positions.
+3. Interpolate spike locations.
+4. Compute 2D KDE of spikes and trajectory.
+5. Normalize spike map by occupancy.
+
+#### **Required R packages**
+
+- `reticulate`
+- `fields`
+
+#### **Output**
+
+- `heatmapsT`: KDE maps per neuron.
+- `Z_mat`: normalized firing maps.
+
